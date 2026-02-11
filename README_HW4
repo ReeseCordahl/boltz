@@ -1,0 +1,107 @@
+# When working with Boltz to generate 50 Protein-Ligand structures and affinity values for OATP1B1, a few alterations were needed to ensure a smooth run.
+#1st: Needed to get access to a GPU over a CPU.
+#2nd: Needed to access a virtual environment to run Boltz.
+#3rd: Created a separate directory for where the input .yaml files, various scripts, and folder for the output of each protein-ligand structure.
+#4th: Imported a .csv file with each ligand and it's SMILES into the new directory.
+#5th: Made a script that opened the .csv file and created 50 .yaml files automatically, keeping the same structure of OATP1B1 and moving down the .csv file for each ligand.
+#6th: With the script for the 50 .yaml files, it was important to specify the affinity action to ensure it was coded into the .yaml file as well.
+#7th: Ran Boltz with a command that allowed for the generation of the structure and affinity prediction for each .yaml imput automatically.
+#8th: I hit a disk quota limit while running this and this code helped me continue: export #TRITON_CACHE_DIR=/mnt/gs21/scratch/cordahlr/triton_cache #mkdir -p $TRITON_CACHE_DIR
+
+#Here are the primary aspects of my code:
+
+#  cd boltz
+
+#  salloc --gres=gpu:1 --mem=64G --time=02:00:00
+
+#  source boltz_env/bin/activate
+
+#  pip install boltz[cuda] -U
+#  pip install ruamel.yaml
+
+#  mkdir -p ~/projects/oapt1b1_boltz
+#  cd ~/projects/oapt1b1_boltz
+
+#  mkdir -p inputs/yaml outputs scripts
+
+#  nano inputs/protein.fasta
+
+#  nano scripts/generate_yaml.py: 
+from pathlib import Path
+import yaml
+INPUT_DIR = Path("inputs/yaml_affinity")
+OUTPUT_DIR = Path("inputs/yaml_affinity_fixed")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+for yaml_file in INPUT_DIR.glob("*.yaml"):
+    with open(yaml_file, "r") as f:
+        data = yaml.safe_load(f)
+
+    protein_seq = None
+    ligand_smiles = None
+    ligand_id = None
+
+    for item in data.get("sequences", []):
+        if "protein" in item and protein_seq is None:
+            protein_seq = item["protein"]["sequence"]
+            protein_id = item["protein"]["id"] if isinstance(item["protein"]["id"], str) else item["protein"]["id"][0]
+        elif "ligand" in item and ligand_smiles is None:
+            ligand_smiles = item["ligand"]["smiles"]
+            ligand_id = item["ligand"]["id"] if isinstance(item["ligand"]["id"], str) else item["ligand"]["id"][0]
+
+    if protein_seq is None or ligand_smiles is None:
+        print(f"Skipping {yaml_file.name}: missing protein or ligand")
+        continue
+
+    new_data = {
+        "version": 1,
+        "sequences": [
+            {
+                "protein": {
+                    "id": protein_id,
+                    "sequence": protein_seq
+                }
+            },
+            {
+                "ligand": {
+                    "id": ligand_id,
+                    "smiles": ligand_smiles
+                }
+            }
+        ],
+        "properties": [
+            {
+                "affinity": {
+                    "binder": ligand_id
+                }
+            }
+        ]
+    }
+
+    out_file = OUTPUT_DIR / yaml_file.name
+    with open(out_file, "w") as f:
+        yaml.dump(new_data, f, sort_keys=False)
+
+    print(f"✔ Wrote {out_file}")
+
+#  python scripts/generate_yaml.py
+
+#  (check number of .yaml files): ls inputs/yaml | wc -l
+
+#  Run Boltz on all 50 .yaml files:
+for y in inputs/yaml_affinity_fixed/oapt1b1_*.yaml; do
+    name=$(basename "$y" .yaml)
+    echo "Running $name..."
+    boltz predict "$y" --out_dir "outputs_affinity_fixed/$name" --use_msa_server
+done
+
+#When my GPU crashed I ran this for the last 25 .yaml files: 
+for y in $(ls -1 inputs/yaml_affinity_fixed/oapt1b1_*.yaml | tail -25); do
+    name=$(basename "$y" .yaml)
+    echo "Running $name..."
+    boltz predict "$y" --out_dir "outputs_affinity_fixed/$name" --use_msa_server
+done
+
+
+
+
