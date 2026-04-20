@@ -102,6 +102,4 @@ for y in $(ls -1 inputs/yaml_affinity_fixed/oapt1b1_*.yaml | tail -25); do
     boltz predict "$y" --out_dir "outputs_affinity_fixed/$name" --use_msa_server
 done
 
-
-
-
+*.md
