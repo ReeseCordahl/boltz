@@ -39,93 +39,93 @@ Jobs were run on an HPC cluster using SLURM:
 
 ### Code used: 
 
-#!/bin/bash --login
-#SBATCH --job-name=boltz2
-#SBATCH --time=01:00:00
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
-#SBATCH --gpus=a100:1
-#SBATCH --array=0-0
-#SBATCH --output=/mnt/gs21/scratch/garlan70/boltz/logs/%x_%A_%a.out
-#SBATCH --error=/mnt/gs21/scratch/garlan70/boltz/logs/%x_%A_%a.err
+    #!/bin/bash --login
+    #SBATCH --job-name=boltz2
+    #SBATCH --time=01:00:00
+    #SBATCH --cpus-per-task=8
+    #SBATCH --mem=32G
+    #SBATCH --gpus=a100:1
+    #SBATCH --array=0-0
+    #SBATCH --output=/mnt/gs21/scratch/garlan70/boltz/logs/%x_%A_%a.out
+    #SBATCH --error=/mnt/gs21/scratch/garlan70/boltz/logs/%x_%A_%a.err
  
-set -euo pipefail
+    set -euo pipefail
  
-BASE=/mnt/gs21/scratch/garlan70/boltz
-INPUTS=$BASE/inputs/yamls
-LOGS=$BASE/logs
-OUTPUTS=$BASE/outputs
-CACHE_BASE=${SLURM_TMPDIR:-/tmp/$USER/boltz_${SLURM_ARRAY_TASK_ID}}
+    BASE=/mnt/gs21/scratch/garlan70/boltz
+    INPUTS=$BASE/inputs/yamls
+    LOGS=$BASE/logs
+    OUTPUTS=$BASE/outputs
+    CACHE_BASE=${SLURM_TMPDIR:-/tmp/$USER/boltz_${SLURM_ARRAY_TASK_ID}}
  
-mkdir -p "$LOGS" "$OUTPUTS" "$CACHE_BASE"
+    mkdir -p "$LOGS" "$OUTPUTS" "$CACHE_BASE"
  
-# Number of distinct seeds to run per YAML
-BOLTZ_NUM_SEEDS=5
+    # Number of distinct seeds to run per YAML
+    BOLTZ_NUM_SEEDS=5
  
-# Number of diffusion samples per seed
-BOLTZ_SAMPLES_PER_SEED=5
+    # Number of diffusion samples per seed
+    BOLTZ_SAMPLES_PER_SEED=5
  
-# Parallel sampling within a seed run
-MAX_PARALLEL_SAMPLES="$BOLTZ_SAMPLES_PER_SEED"
+    # Parallel sampling within a seed run
+    MAX_PARALLEL_SAMPLES="$BOLTZ_SAMPLES_PER_SEED"
  
-# Max allowed seed value
-MAX_SEED=2147483647
+    # Max allowed seed value
+    MAX_SEED=2147483647
  
-module purge
-module load Miniforge3
-source "$(conda info --base)/etc/profile.d/conda.sh"
+    module purge
+    module load Miniforge3
+    source "$(conda info --base)/etc/profile.d/conda.sh"
  
-unset PYTHONPATH
-export PYTHONNOUSERSITE=1
+    unset PYTHONPATH
+    export PYTHONNOUSERSITE=1
  
-conda activate boltz2
+    conda activate boltz2
  
-echo "which python: $(which python)"
-echo "which boltz:  $(which boltz)"
-echo "CACHE_BASE:   $CACHE_BASE"
+    echo "which python: $(which python)"
+    echo "which boltz:  $(which boltz)"
+    echo "CACHE_BASE:   $CACHE_BASE"
  
-python -c "import sys; print('python exe:', sys.executable)"
-python -c "import site; print('usersite enabled:', site.ENABLE_USER_SITE)"
-python -c "import torch; print('cuda available:', torch.cuda.is_available(), 'count:', torch.cuda.device_count())"
+    python -c "import sys; print('python exe:', sys.executable)"
+    python -c "import site; print('usersite enabled:', site.ENABLE_USER_SITE)"
+    python -c "import torch; print('cuda available:', torch.cuda.is_available(), 'count:', torch.cuda.device_count())"
  
-nvidia-smi || true
+    nvidia-smi || true
  
-# Select YAML from inputs/yamls
-mapfile -t YAMLS < <(find "$INPUTS" -maxdepth 1 -type f -name "*.yaml" | sort)
+    # Select YAML from inputs/yamls
+    mapfile -t YAMLS < <(find "$INPUTS" -maxdepth 1 -type f -name "*.yaml" | sort)
  
-echo "Found ${#YAMLS[@]} YAML files in $INPUTS"
+    echo "Found ${#YAMLS[@]} YAML files in $INPUTS"
  
-YAML="${YAMLS[$SLURM_ARRAY_TASK_ID]:-}"
+    YAML="${YAMLS[$SLURM_ARRAY_TASK_ID]:-}"
  
-if [[ -z "${YAML:-}" ]]; then
+    if [[ -z "${YAML:-}" ]]; then
     echo "No YAML found for task ${SLURM_ARRAY_TASK_ID}"
     exit 1
-fi
+    fi
  
-if [[ ! -f "$YAML" ]]; then
+    if [[ ! -f "$YAML" ]]; then
     echo "YAML does not exist: $YAML"
     exit 1
-fi
+    fi
  
-JOB_TAG="$(basename "$YAML" .yaml)"
-OUT_HOST="${OUTPUTS}/${JOB_TAG}"
+    JOB_TAG="$(basename "$YAML" .yaml)"
+    OUT_HOST="${OUTPUTS}/${JOB_TAG}"
  
-mkdir -p "$OUT_HOST"
+    mkdir -p "$OUT_HOST"
  
-BASE_SEED=$(echo -n "${JOB_TAG}" | cksum | awk '{print $1 % ('"$MAX_SEED"'-1) + 1}')
+    BASE_SEED=$(echo -n "${JOB_TAG}" | cksum | awk '{print $1 % ('"$MAX_SEED"'-1) + 1}')
  
-echo "Running task ${SLURM_ARRAY_TASK_ID}"
-echo "Input YAML:    $YAML"
-echo "Job tag:       $JOB_TAG"
-echo "Output dir:    $OUT_HOST"
-echo "Base seed:     $BASE_SEED"
-echo "Num seeds:     $BOLTZ_NUM_SEEDS"
-echo "Samples/seed:  $BOLTZ_SAMPLES_PER_SEED"
+    echo "Running task ${SLURM_ARRAY_TASK_ID}"
+    echo "Input YAML:    $YAML"
+    echo "Job tag:       $JOB_TAG"
+    echo "Output dir:    $OUT_HOST"
+    echo "Base seed:     $BASE_SEED"
+    echo "Num seeds:     $BOLTZ_NUM_SEEDS"
+    echo "Samples/seed:  $BOLTZ_SAMPLES_PER_SEED"
  
-sleep $((SLURM_ARRAY_TASK_ID % 15))
- 
-COMPLETE_COUNT=0
-for ((i=0; i<BOLTZ_NUM_SEEDS; i++)); do
+    sleep $((SLURM_ARRAY_TASK_ID % 15))
+  
+    COMPLETE_COUNT=0
+    for ((i=0; i<BOLTZ_NUM_SEEDS; i++)); do
     SEED=$(( (BASE_SEED + i) % MAX_SEED ))
     [[ "$SEED" -eq 0 ]] && SEED=1
     SEED_OUT="${OUT_HOST}/seed-${SEED}"
@@ -133,15 +133,15 @@ for ((i=0; i<BOLTZ_NUM_SEEDS; i++)); do
     if find "$SEED_OUT" -type f \( -name "*.cif" -o -name "*.mmcif" \) | grep -q . 2>/dev/null; then
         COMPLETE_COUNT=$((COMPLETE_COUNT + 1))
     fi
-done
+    done
  
-if [[ "$COMPLETE_COUNT" -eq "$BOLTZ_NUM_SEEDS" ]]; then
+    if [[ "$COMPLETE_COUNT" -eq "$BOLTZ_NUM_SEEDS" ]]; then
     echo "All ${BOLTZ_NUM_SEEDS} seeds appear complete for ${JOB_TAG}; skipping"
     exit 0
-fi
+    fi
  
 # Run Boltz for multiple seeds
-for ((i=0; i<BOLTZ_NUM_SEEDS; i++)); do
+    for ((i=0; i<BOLTZ_NUM_SEEDS; i++)); do
     SEED=$(( (BASE_SEED + i) % MAX_SEED ))
     [[ "$SEED" -eq 0 ]] && SEED=1
  
@@ -167,9 +167,9 @@ for ((i=0; i<BOLTZ_NUM_SEEDS; i++)); do
       --diffusion_samples "$BOLTZ_SAMPLES_PER_SEED" \
       --max_parallel_samples "$MAX_PARALLEL_SAMPLES" \
       --override
-done
+    done
  
-echo "Completed ${JOB_TAG}"
+    echo "Completed ${JOB_TAG}"
 
 ### 5. Affinity Analysis
 Predicted binding affinities were processed using probability-weighted averages:
@@ -184,46 +184,47 @@ Y-axis: F360 mutations
 Color: change in affinity relative to WT
 
 Script used:
-#!/usr/bin/env python3
+
+    #!/usr/bin/env python3
  
-from pathlib import Path
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
-from matplotlib.patches import Rectangle
+    from pathlib import Path
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+    from matplotlib.patches import Rectangle
  
-# =========================
-# Paths
-# =========================
-BASE_DIR = Path("/mnt/gs21/scratch/garlan70/boltz")
-FIGURES_DIR = BASE_DIR / "figures"
+    # =========================
+    # Paths
+    # =========================
+    BASE_DIR = Path("/mnt/gs21/scratch/garlan70/boltz")
+    FIGURES_DIR = BASE_DIR / "figures"
  
-BILIRUBIN_CSV = FIGURES_DIR / "bilirubin_affinities.csv"
-E3S_CSV = FIGURES_DIR / "e3s_affinities.csv"
-TOP_MUTANTS_CSV = FIGURES_DIR / "top_bilirubin_selective_mutants.csv"
+    BILIRUBIN_CSV = FIGURES_DIR / "bilirubin_affinities.csv"
+    E3S_CSV = FIGURES_DIR / "e3s_affinities.csv"
+    TOP_MUTANTS_CSV = FIGURES_DIR / "top_bilirubin_selective_mutants.csv"
  
-BILIRUBIN_PNG = FIGURES_DIR / "bilirubin_affinities.png"
-E3S_PNG = FIGURES_DIR / "e3s_affinities.png"
+    BILIRUBIN_PNG = FIGURES_DIR / "bilirubin_affinities.png"
+    E3S_PNG = FIGURES_DIR / "e3s_affinities.png"
  
-# =========================
-# Settings
-# =========================
-AA_ORDER = list("ACDEFGHIKLMNPQRSTVWY")
-WT_LABEL = "T357T_F360F"
+    # =========================
+    # Settings
+    # =========================
+    AA_ORDER = list("ACDEFGHIKLMNPQRSTVWY")
+    WT_LABEL = "T357T_F360F"
  
-PROB_COLS = ["affinity_0", "affinity_1", "affinity_2"]
-PRED_COLS = ["affinity_pred_0", "affinity_pred_1", "affinity_pred_2"]
+    PROB_COLS = ["affinity_0", "affinity_1", "affinity_2"]
+    PRED_COLS = ["affinity_pred_0", "affinity_pred_1", "affinity_pred_2"]
  
  
-def load_top_mutants(top_csv: Path) -> set[str]:
+    def load_top_mutants(top_csv: Path) -> set[str]:
     df = pd.read_csv(top_csv)
     if "mutant" not in df.columns:
         raise ValueError(f"'mutant' column not found in {top_csv}")
     return set(df["mutant"].dropna().astype(str))
  
  
-def build_scored_dataframe(csv_path: Path) -> pd.DataFrame:
+    def build_scored_dataframe(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path).copy()
  
     df["aa357"] = df["mutant"].str.extract(r"T357([A-Z])")
@@ -249,7 +250,7 @@ def build_scored_dataframe(csv_path: Path) -> pd.DataFrame:
     return df
  
  
-def make_matrix(df: pd.DataFrame) -> np.ndarray:
+    def make_matrix(df: pd.DataFrame) -> np.ndarray:
     mat = np.full((20, 20), np.nan)
  
     for _, row in df.iterrows():
@@ -263,7 +264,7 @@ def make_matrix(df: pd.DataFrame) -> np.ndarray:
     return mat
  
  
-def add_top_mutant_borders(ax, top_mutants: set[str]):
+    def add_top_mutant_borders(ax, top_mutants: set[str]):
     for mutant in top_mutants:
         m = pd.Series([mutant]).str.extract(r"T357([A-Z])_F360([A-Z])")
         if m.isna().any(axis=None):
@@ -287,7 +288,7 @@ def add_top_mutant_borders(ax, top_mutants: set[str]):
             ax.add_patch(rect)
  
  
-def plot_heatmap(csv_path: Path, out_png: Path, title: str, top_mutants: set[str]):
+    def plot_heatmap(csv_path: Path, out_png: Path, title: str, top_mutants: set[str]):
     df = build_scored_dataframe(csv_path)
     mat = make_matrix(df)
  
@@ -326,7 +327,7 @@ def plot_heatmap(csv_path: Path, out_png: Path, title: str, top_mutants: set[str
     print(f"Wrote: {out_png}")
  
  
-def main():
+    def main():
     top_mutants = load_top_mutants(TOP_MUTANTS_CSV)
  
     plot_heatmap(
@@ -344,16 +345,17 @@ def main():
     )
  
  
-if __name__ == "__main__":
+    if __name__ == "__main__":
     main()
 
 ## Key Results
 Top candidate mutations identified:
-T357M + F360C
-T357F + F360R
-T357M + F360H
-T357Y + F360D
-T357P + F360P
+- T357M + F360C
+- T357F + F360R
+- T357M + F360H
+- T357Y + F360D
+- T357P + F360P
+
 These mutations:
-Reduce bilirubin binding
-Maintain or minimally affect E3S binding
+- Reduce bilirubin binding
+- Maintain or minimally affect E3S binding
