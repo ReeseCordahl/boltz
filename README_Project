@@ -1,4 +1,5 @@
 # OATP1B1 Selectivity Engineering with Boltz
+## Reference https://github.com/lrg12345/boltz for any confusions
 
 ## Overview
 This project focuses on engineering the human transporter OATP1B1 to improve substrate selectivity using computational methods. The goal is to reduce transport of bilirubin (an undesired metabolic waste product) while maintaining transport of estrone-3-sulfate (E3S), a model drug-like molecule.
@@ -12,6 +13,7 @@ Using structural data and machine learning, we performed saturation mutagenesis 
 - Develop a computational workflow for screening mutations
 
 ## Methods
+
 ### 1. Structure Selection
 Cryo-EM structures were used as templates:
 - Bilirubin-bound structure (8HNC)
@@ -345,7 +347,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-### 7. Key Results
+## Key Results
 Top candidate mutations identified:
 T357M + F360C
 T357F + F360R
