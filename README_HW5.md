@@ -1,32 +1,32 @@
 # When working with Boltz to generate 50 Protein-Ligand structures and affinity values for OATP1B1, a few alterations were needed to ensure a smooth run.
-#1st: Needed to get access to a GPU over a CPU.
-#2nd: Needed to access a virtual environment to run Boltz.
-#3rd: Created a separate directory for where the input .yaml files, various scripts, and folder for the output of each protein-ligand structure.
-#4th: Imported a .csv file with each ligand and it's SMILES into the new directory.
-#5th: Made a script that opened the .csv file and created 50 .yaml files automatically, keeping the same structure of OATP1B1 and moving down the .csv file for each ligand.
-#6th: With the script for the 50 .yaml files, it was important to specify the affinity action to ensure it was coded into the .yaml file as well.
-#7th: Ran Boltz with a command that allowed for the generation of the structure and affinity prediction for each .yaml imput automatically.
-#8th: I hit a disk quota limit while running this and this code helped me continue: export #TRITON_CACHE_DIR=/mnt/gs21/scratch/cordahlr/triton_cache #mkdir -p $TRITON_CACHE_DIR
+# 1st: Needed to get access to a GPU over a CPU.
+# 2nd: Needed to access a virtual environment to run Boltz.
+# 3rd: Created a separate directory for where the input .yaml files, various scripts, and folder for the output of each protein-ligand structure.
+# 4th: Imported a .csv file with each ligand and it's SMILES into the new directory.
+# 5th: Made a script that opened the .csv file and created 50 .yaml files automatically, keeping the same structure of OATP1B1 and moving down the .csv file for each ligand.
+# 6th: With the script for the 50 .yaml files, it was important to specify the affinity action to ensure it was coded into the .yaml file as well.
+# 7th: Ran Boltz with a command that allowed for the generation of the structure and affinity prediction for each .yaml imput automatically.
+# 8th: I hit a disk quota limit while running this and this code helped me continue: export #TRITON_CACHE_DIR=/mnt/gs21/scratch/cordahlr/triton_cache #mkdir -p $TRITON_CACHE_DIR
 
-#Here are the primary aspects of my code:
+# Here are the primary aspects of my code:
 
-#  cd boltz
+cd boltz
 
-#  salloc --gres=gpu:1 --mem=64G --time=02:00:00
+salloc --gres=gpu:1 --mem=64G --time=02:00:00
 
-#  source boltz_env/bin/activate
+source boltz_env/bin/activate
 
-#  pip install boltz[cuda] -U
-#  pip install ruamel.yaml
+pip install boltz[cuda] -U
+pip install ruamel.yaml
 
-#  mkdir -p ~/projects/oapt1b1_boltz
-#  cd ~/projects/oapt1b1_boltz
+mkdir -p ~/projects/oapt1b1_boltz
+cd ~/projects/oapt1b1_boltz
 
-#  mkdir -p inputs/yaml outputs scripts
+mkdir -p inputs/yaml outputs scripts
 
-#  nano inputs/protein.fasta
+nano inputs/protein.fasta
 
-#  nano scripts/generate_yaml.py: 
+nano scripts/generate_yaml.py: 
 from pathlib import Path
 import yaml
 INPUT_DIR = Path("inputs/yaml_affinity")
@@ -84,9 +84,9 @@ for yaml_file in INPUT_DIR.glob("*.yaml"):
 
     print(f"✔ Wrote {out_file}")
 
-#  python scripts/generate_yaml.py
+python scripts/generate_yaml.py
 
-#  (check number of .yaml files): ls inputs/yaml | wc -l
+(check number of .yaml files): ls inputs/yaml | wc -l
 
 #  Run Boltz on all 50 .yaml files:
 for y in inputs/yaml_affinity_fixed/oapt1b1_*.yaml; do
@@ -95,11 +95,9 @@ for y in inputs/yaml_affinity_fixed/oapt1b1_*.yaml; do
     boltz predict "$y" --out_dir "outputs_affinity_fixed/$name" --use_msa_server
 done
 
-#When my GPU crashed I ran this for the last 25 .yaml files: 
+# When my GPU crashed I ran this for the last 25 .yaml files: 
 for y in $(ls -1 inputs/yaml_affinity_fixed/oapt1b1_*.yaml | tail -25); do
     name=$(basename "$y" .yaml)
     echo "Running $name..."
     boltz predict "$y" --out_dir "outputs_affinity_fixed/$name" --use_msa_server
 done
-
-*.md
