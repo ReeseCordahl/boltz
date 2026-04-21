@@ -1,43 +1,96 @@
-# When working with Boltz to generate 50 Protein-Ligand structures and affinity values for OATP1B1, a few alterations were needed to ensure a smooth run.
-## 1st: Needed to get access to a GPU over a CPU.
-## 2nd: Needed to access a virtual environment to run Boltz.
-## 3rd: Created a separate directory for where the input .yaml files, various scripts, and folder for the output of each protein-ligand structure.
-## 4th: Imported a .csv file with each ligand and it's SMILES into the new directory.
-## 5th: Made a script that opened the .csv file and created 50 .yaml files automatically, keeping the same structure of OATP1B1 and moving down the .csv file for each ligand.
-## 6th: With the script for the 50 .yaml files, it was important to specify the affinity action to ensure it was coded into the .yaml file as well.
-## 7th: Ran Boltz with a command that allowed for the generation of the structure and affinity prediction for each .yaml imput automatically.
-## 8th: I hit a disk quota limit while running this and this code helped me continue: 
-    export TRITON_CACHE_DIR=/mnt/gs21/scratch/cordahlr/triton_cache #mkdir -p $TRITON_CACHE_DIR
+# Running Boltz for Protein–Ligand Structure Generation and Affinity Prediction
 
-# Here are the primary aspects of my code:
+This workflow uses **Boltz** to generate 50 protein–ligand structures and predict binding affinities for OATP1B1. Several adjustments were required to ensure efficient and successful execution.
 
-    cd boltz
+---
 
-    salloc --gres=gpu:1 --mem=64G --time=02:00:00'
+## Key Notes
 
-    source boltz_env/bin/activate'
+1. **GPU Requirement**
+   - Boltz must be run on a GPU for reasonable performance
 
-    pip install boltz[cuda] -U
-    pip install ruamel.yaml'
+2. **Environment Setup**
+   - Activated a virtual environment before installing and running Boltz
 
-    mkdir -p ~/projects/oapt1b1_boltz
-    cd ~/projects/oapt1b1_boltz
+3. **Project Organization**
+   - Created a structured directory for:
+     - Input `.yaml` files
+     - Scripts
+     - Output structures and predictions
 
-    mkdir -p inputs/yaml outputs scripts
+4. **Ligand Input**
+   - Imported a `.csv` file containing ligands and corresponding SMILES strings
 
-    nano inputs/protein.fasta
+5. **YAML Generation**
+   - Wrote a script to automatically generate 50 `.yaml` files:
+     - Same protein (OATP1B1)
+     - Different ligand per file
 
-nano scripts/generate_yaml.py:
+6. **Affinity Specification**
+   - Ensured each `.yaml` included an **affinity prediction block**
 
-    from pathlib import Path
-    import yaml
-    INPUT_DIR = Path("inputs/yaml_affinity")
-    OUTPUT_DIR = Path("inputs/yaml_affinity_fixed")
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+7. **Batch Execution**
+   - Ran Boltz in a loop to process all `.yaml` files automatically
 
-    for yaml_file in INPUT_DIR.glob("*.yaml"):
+8. **Disk Quota Fix**
+   - Resolved Triton cache issues by redirecting cache to scratch space:
+```bash
+export TRITON_CACHE_DIR=/mnt/gs21/scratch/cordahlr/triton_cache
+mkdir -p $TRITON_CACHE_DIR
+```
+
+---
+
+## Setup and Installation
+
+### Navigate and Request GPU
+```bash
+cd boltz
+
+salloc --gres=gpu:1 --mem=64G --time=02:00:00
+```
+
+### Activate Environment and Install
+```bash
+source boltz_env/bin/activate
+
+pip install boltz[cuda] -U
+pip install ruamel.yaml
+```
+
+---
+
+## Project Directory Setup
+
+```bash
+mkdir -p ~/projects/oapt1b1_boltz
+cd ~/projects/oapt1b1_boltz
+
+mkdir -p inputs/yaml outputs scripts
+```
+
+### Add Protein Sequence
+```bash
+nano inputs/protein.fasta
+```
+
+---
+
+## YAML Generation Script
+
+### `scripts/generate_yaml.py`
+
+```python
+from pathlib import Path
+import yaml
+
+INPUT_DIR = Path("inputs/yaml_affinity")
+OUTPUT_DIR = Path("inputs/yaml_affinity_fixed")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+for yaml_file in INPUT_DIR.glob("*.yaml"):
     with open(yaml_file, "r") as f:
-    data = yaml.safe_load(f)
+        data = yaml.safe_load(f)
 
     protein_seq = None
     ligand_smiles = None
@@ -85,21 +138,59 @@ nano scripts/generate_yaml.py:
         yaml.dump(new_data, f, sort_keys=False)
 
     print(f"✔ Wrote {out_file}")
+```
 
-    python scripts/generate_yaml.py
+### Run Script
+```bash
+python scripts/generate_yaml.py
+```
 
-    (check number of .yaml files): ls inputs/yaml | wc -l'
+### Verify File Count
+```bash
+ls inputs/yaml | wc -l
+```
 
-## Run Boltz on all 50 .yaml files:
-    for y in inputs/yaml_affinity_fixed/oapt1b1_*.yaml; do
+---
+
+## Run Boltz on All YAML Files
+
+```bash
+for y in inputs/yaml_affinity_fixed/oapt1b1_*.yaml; do
     name=$(basename "$y" .yaml)
     echo "Running $name..."
     boltz predict "$y" --out_dir "outputs_affinity_fixed/$name" --use_msa_server
-    done
+done
+```
 
-## When my GPU crashed I ran this for the last 25 .yaml files: 
-    for y in $(ls -1 inputs/yaml_affinity_fixed/oapt1b1_*.yaml | tail -25); do
+---
+
+## Resume After GPU Crash (Last 25 Files)
+
+```bash
+for y in $(ls -1 inputs/yaml_affinity_fixed/oapt1b1_*.yaml | tail -25); do
     name=$(basename "$y" .yaml)
     echo "Running $name..."
     boltz predict "$y" --out_dir "outputs_affinity_fixed/$name" --use_msa_server
-    done
+done
+```
+
+---
+
+## Output
+
+- Generates:
+  - Protein–ligand structures
+  - Predicted binding affinities
+- Organized per ligand in:
+  ```
+  outputs_affinity_fixed/<ligand_name>/
+  ```
+
+---
+
+## Summary
+
+- Automated generation of 50 protein–ligand systems using YAML templating  
+- Efficient batch processing with GPU acceleration  
+- Integrated affinity prediction directly into workflow  
+- Resolved runtime and disk quota issues for stable large-scale execution  
